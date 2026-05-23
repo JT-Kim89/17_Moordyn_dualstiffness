@@ -1,0 +1,83 @@
+# MoorDyn v2 method 2: polyester dual stiffness using a nonlinear tension-strain table
+#
+# Copy this line type into the LINE TYPES section of your MoorDyn v2 input file.
+# The EA column is a file name rather than a number. MoorDyn reads the referenced
+# file as a strain-tension curve.
+#
+# This method does not use MoorDyn's built-in static/dynamic viscoelastic split.
+# Instead, it gives MoorDyn an explicit nonlinear axial force-extension curve.
+# The local slope of that curve is the effective EA. Therefore, a bilinear
+# tension-strain curve is a direct way to create "low stiffness before the
+# transition" and "high stiffness after the transition".
+#
+# Key distinction from method 1:
+#   Method 1: EA_s and EA_d are separated by MoorDyn's viscoelastic model.
+#   Method 2: There is only one nonlinear T(eps) curve; the slope changes with
+#             strain. This is useful for a piecewise/bilinear polyester model,
+#             but it is not the same as a full cyclic hysteresis model.
+#
+# Keep polyester_bilinear_tension_strain.txt in the same folder as the main
+# MoorDyn-C input file. For MoorDyn-F, keep it in the same folder as the
+# executable calling MoorDyn-F unless you provide an explicit path.
+#
+# Do not add extra comment lines inside polyester_bilinear_tension_strain.txt.
+# MoorDyn expects the first three lines to be header lines and every following
+# line to contain numeric strain-tension data. Extra explanatory comments in
+# the table file can break parsing, so the explanations are kept here instead.
+#
+# Literature-based example used here:
+#   - Polyester rope diameter: 147 mm
+#   - MBL/MBS: 885 tonnes = 8.678885e6 N
+#   - Static stiffness ratio Krs = 12
+#   - Dynamic stiffness ratio Krd = 29
+#   - Mean tension used as the stiffness transition: 32% MBS
+#   - Therefore:
+#       EA_low  = 12*MBS = 1.041466e8 N
+#       EA_high = 29*MBS = 2.516877e8 N
+#       eps_k   = 0.32/12 = 0.026667
+#       T_k     = 0.32*MBS = 2.777243e6 N
+#
+# Why the transition is placed at 32% MBS:
+#   The ABS static-dynamic example uses 32% MBS as the representative mean
+#   tension. Placing the transition at that mean load makes the table easy to
+#   compare against the ABS static/dynamic validation targets in
+#   polyester_validation_targets.md.
+#
+# If your simulated mean tension is very different:
+#   Move eps_k to match your target mean tension:
+#
+#       eps_k = (T_mean/MBS) / Krs
+#
+#   Then recompute T_k and the post-transition table values:
+#
+#       T_k = T_mean
+#       T   = T_k + EA_high*(eps - eps_k)
+#
+# The table file below represents a bilinear curve:
+#   T = EA_low * eps                                      for eps <= eps_k
+#   T = EA_low * eps_k + EA_high * (eps - eps_k)          for eps > eps_k
+#
+# Important:
+#   The table stores tension, not stiffness. Do not put EA_low or EA_high
+#   directly into the table. MoorDyn infers the stiffness from the slope between
+#   adjacent table points.
+#
+# How to check the table:
+#   From eps = 0 to eps = 0.026667, the slope should be about 1.041466e8 N.
+#   After eps = 0.026667, the slope should be about 2.516877e8 N.
+#   The final point is near 99.7% MBS, so the example avoids extrapolating far
+#   beyond the nominal breaking strength.
+#
+# Sources:
+#   Sorum et al. (2023), JMSE 11(1), 193, for the 147 mm, 885 tonne polyester
+#   fibre-rope case.
+#   ABS fiber-rope mooring guidance Appendix 2 for Krs = 12 and Krd = 29 in
+#   the static-dynamic strength-analysis example.
+#
+# TypeName       Diam    Mass/m   EA                                  BA/-zeta  EI   Cd    Ca    CdAx   CaAx   Cl   dF     cF
+# (name)         (m)     (kg/m)   (file)                              (N-s/-)   (N-m2) (-)   (-)   (-)    (-)    (-)  (-)    (-)
+PolyesterTable   0.147   16.2     polyester_bilinear_tension_strain.txt -0.05   0    1.6   1.0   0.05   0.0    0    0.08   0.18
+#
+# As in method 1, Mass/m and hydrodynamic coefficients are placeholders unless
+# you replace them with vendor or project data. The literature calibration here
+# mainly concerns the axial stiffness behavior.

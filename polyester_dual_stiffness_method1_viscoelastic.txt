@@ -1,0 +1,158 @@
+# MoorDyn v2 method 1: polyester dual stiffness using built-in viscoelastic syntax
+#
+# Copy one of the Polyester line-type rows into the LINE TYPES section of your
+# MoorDyn v2 input file.
+#
+# This file is intentionally not a complete MoorDyn input file. It is a
+# commented snippet. In an actual MoorDyn input file, keep the column names and
+# the number of values in each row consistent with the rest of your file.
+#
+# Practical copy-paste rule:
+#   1. Find the LINE TYPES section in your MoorDyn input.
+#   2. Check which columns your file uses. Some MoorDyn examples include the
+#      optional Cl, dF, and cF columns; some do not.
+#   3. Copy either PolyesterVE or PolyesterVELoad.
+#   4. If your header does not include Cl, dF, and cF, remove the last three
+#      values from the copied row.
+#   5. Keep the pipe-separated EA and BA fields with no spaces around the pipe.
+#      For example, write 1.041466e8|2.516877e8, not
+#      1.041466e8 | 2.516877e8.
+#
+# Why this method exists:
+#   Polyester ropes are often modeled with two effective axial stiffnesses.
+#   The lower stiffness controls slow/quasi-static offset and mean load. The
+#   higher stiffness controls wave-frequency or short-period cyclic response.
+#   MoorDyn v2 can represent that directly in the EA field using the syntax:
+#
+#       EA_s|EA_d
+#
+#   or, when dynamic stiffness is assumed to depend on mean load:
+#
+#       EA_s|EA_Dc|EA_D_Lm
+#
+#   This is the cleanest way to use MoorDyn's built-in synthetic-line
+#   viscoelastic treatment without editing MoorDyn source code.
+#
+# Literature-based example used here:
+#   - Polyester rope diameter: 147 mm
+#   - MBL/MBS: 885 tonnes = 8.678885e6 N
+#   - Source for rope MBL and diameter:
+#       Sorum et al. (2023), "Modelling of Synthetic Fibre Rope Mooring for
+#       Floating Offshore Wind Turbines", JMSE 11(1), 193.
+#   - Static-dynamic stiffness ratios:
+#       Krs = 12, Krd = 29, where Kr = EA/MBS
+#       These are the ABS Appendix 2 static-dynamic example values for strength
+#       analysis, based on polyester stiffness JIP practice.
+#   - Therefore:
+#       EA_s = Krs * MBS = 1.041466e8 N
+#       EA_d = Krd * MBS = 2.516877e8 N
+#
+# Unit conversion detail:
+#   The paper reports MBL as 885 tonnes. MoorDyn needs SI force units.
+#   Using standard gravity:
+#
+#       MBS = 885 tonne * 1000 kg/tonne * 9.80665 m/s2
+#           = 8.678885e6 N
+#
+#   Then the dimensionless stiffness ratio Kr is converted to MoorDyn EA by:
+#
+#       EA = Kr * MBS
+#
+#   This is why Krs = 12 becomes 1.041466e8 N, and Krd = 29 becomes
+#   2.516877e8 N.
+#
+# Citation/context note:
+#   Tahar and Kim (2008), "Coupled-dynamic analysis of floating structures with
+#   polyester mooring lines", Ocean Engineering, is a highly cited polyester
+#   mooring-line modeling paper and adopts the Bosman and Hooker polyester
+#   empirical stiffness approach. Semantic Scholar reported 106 citations when
+#   checked on 2026-05-20.
+#
+# Non-stiffness fields:
+#   Mass/m = 16.2 kg/m below is an approximate polyester dry mass estimate,
+#   scaled from ABS typical polyester-rope data by diameter squared. Replace it
+#   with the manufacturer's mass per meter if available. Hydrodynamic
+#   coefficients are placeholders.
+#
+# Important design warning:
+#   The stiffness values below are literature-calibrated, but the full line type
+#   is not a certified design data sheet. For final analysis, replace at least
+#   Mass/m, Cd, Ca, CdAx, CaAx, seabed friction, and damping with project- or
+#   vendor-specific values.
+#
+# Meaning of the important fields:
+#   EA_s             static axial stiffness [N]
+#   EA_d             dynamic axial stiffness [N]
+#   EA_Dc            dynamic stiffness intercept [N]
+#   EA_D_Lm          dynamic stiffness slope vs mean load [-], used as:
+#                    EA_d = EA_Dc + EA_D_Lm * mean_load
+#   BA_s             static internal damping [N-s], or negative damping ratio [-]
+#   BA_d             dynamic internal damping [N-s]; do not enter this as a
+#                    negative damping ratio
+#
+# Meaning of the other fields in the example rows:
+#   TypeName         Name used later by LINES entries.
+#   Diam             Nominal line diameter [m].
+#   Mass/m           Line mass per unstretched length [kg/m].
+#   EI               Bending stiffness [N-m2]. Usually set to 0 for a rope.
+#   Cd, Ca           Transverse drag and added-mass coefficients.
+#   CdAx, CaAx       Axial drag and added-mass coefficients.
+#   Cl               Optional lift coefficient, if your MoorDyn header has it.
+#   dF, cF           Optional seabed friction parameters, if your header has
+#                    them. Remove them if your input file does not use these
+#                    columns.
+#
+# Example A: constant static + dynamic stiffness
+#   EA_s = 1.041466e8 N
+#   EA_d = 2.516877e8 N
+#   BA_s = -0.05  -> 5 percent critical damping for static component
+#   BA_d = 2.0e6 N-s
+#
+# Use Example A when:
+#   - You want the simplest reproducible dual-stiffness model.
+#   - You have a target static stiffness and one target dynamic stiffness.
+#   - Your comparison data does not require dynamic stiffness to change with
+#     mean load.
+#
+# Interpretation:
+#   At low-frequency/static response, MoorDyn uses EA_s for the slowly varying
+#   component. For the dynamic/cyclic component, it uses EA_d. This is intended
+#   to approximate the observation that polyester ropes are softer in
+#   quasi-static loading and stiffer under cyclic loading.
+#
+# TypeName     Diam    Mass/m   EA              BA/-zeta        EI   Cd    Ca    CdAx   CaAx   Cl   dF     cF
+# (name)       (m)     (kg/m)   (N)             (N-s/-)         (N-m2) (-)   (-)   (-)    (-)    (-)  (-)    (-)
+PolyesterVE    0.147   16.2     1.041466e8|2.516877e8  -0.05|2.0e6  0    1.6   1.0   0.05   0.0    0    0.08   0.18
+
+
+# Example B: static stiffness + load-dependent dynamic stiffness
+#   This adapts the mean-load part of the ABS dynamic stiffness regression:
+#       Krd = 27.5 + 0.25*Lm - 0.59*Tamp - 1.65*log10(P)
+#   where Lm and Tamp are in percent MBS and P is period.
+#
+#   MoorDyn's EA_s|EA_Dc|EA_D_Lm input only supports:
+#       EA_d = EA_Dc + EA_D_Lm * mean_load
+#   so the amplitude and period terms are omitted here. If you need full ABS
+#   regression fidelity, precompute Krd for each design case and use Example A.
+#
+#   EA_s = 1.041466e8 N
+#   EA_Dc = 27.5*MBS = 2.386693e8 N
+#   EA_D_Lm = 25.0 because 0.25*(100*mean_load/MBS)*MBS = 25*mean_load
+#   If mean_load = 0.32*MBS = 2.777243e6 N,
+#   then EA_d = 2.386693e8 + 25*2.777243e6 = 3.081004e8 N
+#
+# Use Example B when:
+#   - You want dynamic stiffness to increase with mean load.
+#   - Your validation target reports a mean-load-dependent dynamic stiffness.
+#   - You are comfortable with the limitation that MoorDyn's built-in form only
+#     captures the mean-load term, not the cyclic amplitude and period terms.
+#
+# How to use the full ABS regression with MoorDyn anyway:
+#   For each design case, compute Krd from the ABS regression outside MoorDyn
+#   using the target mean load, tension amplitude, and period. Then use
+#   Example A with EA_d = Krd*MBS for that case. This avoids forcing a
+#   multi-variable regression into MoorDyn's one-variable mean-load syntax.
+#
+# TypeName       Diam    Mass/m   EA                    BA/-zeta        EI   Cd    Ca    CdAx   CaAx   Cl   dF     cF
+# (name)         (m)     (kg/m)   (N)                   (N-s/-)         (N-m2) (-)   (-)   (-)    (-)    (-)  (-)    (-)
+PolyesterVELoad  0.147   16.2     1.041466e8|2.386693e8|25.0  -0.05|2.0e6  0    1.6   1.0   0.05   0.0    0    0.08   0.18
